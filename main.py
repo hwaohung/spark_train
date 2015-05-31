@@ -110,16 +110,32 @@ def report(actuals, predicts):
 
 
 if __name__ == "__main__":
-    rows = read_file("10_percent.txt")
+    #rows = read_file("10_percent.txt")
     #data = transform_to_data(rows)
-    #data = MLUtils.loadLibSVMFile(sc, "Con.txt").collect()
-    data = MLUtils.loadLibSVMFile(sc, "sample_libsvm_data.txt").collect()
-    #data = data[:10]
-    #print data[0]
-    
-    #svm = SVMWithSGD.train(sc.parallelize(data[:10]))
-    #svm = LogisticRegressionWithSGD.train(sc.parallelize(data))
-    svm = LogisticRegressionWithLBFGS.train(sc.parallelize(data))
-    print svm.predict(data[0].features)
+    data = MLUtils.loadLibSVMFile(sc, "Con.txt").collect()
+    #data = MLUtils.loadLibSVMFile(sc, "sample_libsvm_data.txt").collect()
 
-    #report(labels, predicts)
+    test_data = data[100000:]
+
+    # Gen multiple classfiers
+    classifiers = dict()
+    for label in label_map.values():
+        train_data = copy.deepcopy(data[:100000])
+        for row in train_data
+            if row.label == label: row.label = 1
+            else: row.label = 0
+
+        svm = SVMWithSGD.train(sc.parallelize(train_data))
+        classifiers[label] = svm
+    
+    actuals = list()
+    predicts = list()
+    for row in test_data:
+        actuals.append(row.label)
+        
+        for label in label_map.values():
+            if classifiers[label].predict(row.features) == 1:
+                predicts.append(label)
+                break
+            
+    report(labels, predicts)
