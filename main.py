@@ -91,12 +91,12 @@ def get_principal_indexes(data, required):
 def gen_predictors(training_data):
     classifiers = dict()
     for label in label_map.values():
-        training_data = copy.deepcopy(training_data)
-        for row in training_data:
+        temp = copy.deepcopy(training_data)
+        for row in temp:
             if row.label == label: row.label = 1
             else: row.label = 0
 
-        svm = SVMWithSGD.train(sc.parallelize(training_data))
+        svm = SVMWithSGD.train(sc.parallelize(temp))
         classifiers[label] = svm
 
     return classifiers
@@ -105,19 +105,22 @@ def predict(test_data, classifiers, hist):
     # Min count label(in training data)
     min_label = hist.index(min(hist))
     predicts = list()
+    valids = set()
     for row in test_data:
         belong = None
         for label in label_map.values():
             if classifiers[label].predict(row.features) == 1:
+                valids.add(label)
                 if belong is None: belong = label
                 elif hist[label] > hist[belong]: belong = label
             
         if belong is None: belong = min_label
         predicts.append(belong)
 
+    print valids
     return predicts
 
-def reduce_dimension(training_data, data, required=30)
+def reduce_dimension(training_data, data, required=30):
     # Dimension reduce
     pca = get_principal_indexes(training_data, required=required)
     pca.fit_transform(data)
@@ -169,20 +172,30 @@ if __name__ == "__main__":
     #data = MLUtils.loadLibSVMFile(sc, "Con.txt").collect()
     #data = MLUtils.loadLibSVMFile(sc, "sample_libsvm_data.txt").collect()
 
-    
-
     training_data = data[:10000]
     test_data = data[:10000]
-    
+   
+
+    print [row.label for row in training_data]
     #reduce_dimension(training_data, data, required=30)
 
     hist = [0 for label in range(len(label_map))]
-    for label in sorted(label_map.values()):
-        hist[label] += 1
-        
+    for row in training_data:
+        hist[row.label] += 1
+    
+    print hist    
+    exit() 
     classifiers = gen_predictors(training_data)
 
     actuals = [row.label for row in test_data]
     predicts = predict(test_data, classifiers, hist)
 
+    counter = dict()
+    for label in label_map.values():
+        counter[label] = 0
+
+    for pre in predicts:
+        counter[pre] += 1
+
+    print counter
     report(actuals, predicts)
