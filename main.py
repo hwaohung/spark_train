@@ -82,10 +82,10 @@ def read_file(file_name):
     return rows
 
 def get_principal_indexes(data, required):
-    pca = PCA(n_components=len(data[0].features))
+    pca = PCA(n_components=required)
     X = np.array([row.features for row in data])
     pca.fit(X)
-    print pca.explained_variance_ratio_
+    return pca
 
 # Gen multiple classfiers
 def gen_predictors(training_data):
@@ -117,6 +117,11 @@ def predict(test_data, classifiers, hist):
 
     return predicts
 
+def reduce_dimension(training_data, data, required=30)
+    # Dimension reduce
+    pca = get_principal_indexes(training_data, required=required)
+    pca.fit_transform(data)
+
 def report(actuals, predicts):
     tp_count = dict()
     actual_count = dict()
@@ -137,9 +142,9 @@ def report(actuals, predicts):
         if predict == actual:
             tp_count[actual] += 1
     
-    p_amount = 0
+    p_amount = 0.0
     precision = 0.0
-    r_amount = 0
+    r_amount = 0.0
     recall = 0.0
     for label in label_map.values():
         if actual_count[label] != 0: 
@@ -148,10 +153,11 @@ def report(actuals, predicts):
 
         if predict_count[label] != 0: 
             recall += tp_count[label] / float(predict_count[label])
+            r_amount += 1
 
     print p_amount, r_amount
-    precision /= p_amount
-    recall /= r_amount
+    precision /= float(p_amount)
+    recall /= float(r_amount)
         
     print "Precision: {0}".format(precision)
     print "Recall: {0}".format(recall)
@@ -163,17 +169,18 @@ if __name__ == "__main__":
     #data = MLUtils.loadLibSVMFile(sc, "Con.txt").collect()
     #data = MLUtils.loadLibSVMFile(sc, "sample_libsvm_data.txt").collect()
 
+    
+
     training_data = data[:10000]
     test_data = data[:10000]
-    #test_data = data[10000:]
+    
+    #reduce_dimension(training_data, data, required=30)
 
     hist = [0 for label in range(len(label_map))]
     for label in sorted(label_map.values()):
         hist[label] += 1
         
     classifiers = gen_predictors(training_data)
-
-    #get_principal_indexes(training_data, required=30)
 
     actuals = [row.label for row in test_data]
     predicts = predict(test_data, classifiers, hist)
