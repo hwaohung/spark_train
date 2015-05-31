@@ -1,7 +1,10 @@
 from pyspark.mllib.classification import SVMModel
 from pyspark.mllib.classification import SVMWithSGD
+#from pyspark.mllib.classification import LogisticRegressionWithSGD
+from pyspark.mllib.classification import LogisticRegressionWithLBFGS
 from pyspark.mllib.regression import LabeledPoint
 from pyspark import SparkContext
+from pyspark.mllib.util import MLUtils
 
 
 app_name = "WordCount"
@@ -38,14 +41,15 @@ labels = [ "back", "buffer_overflow", "ftp_write", "guess_passwd", "imap", "ipsw
 label_map = { labels[i]: i for i in range(len(labels)) }
 
 def transform_to_data(rows):
-    #test = open("Con.txt", "w")
+    test = open("Con.txt", "w")
     data = list()
     for row in rows:
         lp = LabeledPoint(*convert_features(row))
         data.append(lp)
-        #test.write(",".join([str(x) for x in convert_features(row)])+"\n")
+        test.write("{0} {1}\n".format(lp.label, 
+                                      ' '.join(["{0}:{1}".format(i, lp.features[i]) for i in range(len(lp.features)) if lp.features[i] != 0])))
 
-    #test.close()
+    test.close()
     return data
 
 def convert_features(row):
@@ -72,9 +76,50 @@ def read_file(file_name):
     fp.close()
     return rows
 
+def report(actuals, predicts):
+    tp_count = dict()
+    actual_count = dict()
+    predict_count = dict()
+
+    # Initialize the count
+    for label in labels:
+        tp_count[label] = 0
+        actual_count[label] = 0
+        predict_count[label] = 0
+
+    for i in range(len(actuals)):
+        label = labels[i]
+        predict = predicts[i]
+
+        actual_count[label] += 1
+        predict_count[predict] += 1
+        if predict == label:
+            tp_count[label] += 1
+    
+    precision = 0.0
+    recall = 0.0
+    for label in labels:
+        precision += tp_count[label] / float(actual_count[label])
+        recall += tp_count[label] / float(predict_count[label])
+
+    precision /= len(labels)
+    recall /= len(labels)
+        
+    print "Precision: {0}".format(precision)
+    print "Recall: {0}".format(recall)
+
+
 if __name__ == "__main__":
     rows = read_file("10_percent.txt")
-    data = transform_to_data(rows)
-    #help(SVMModel)
-    svm = SVMWithSGD.train(sc.parallelize(data))
+    #data = transform_to_data(rows)
+    #data = MLUtils.loadLibSVMFile(sc, "Con.txt").collect()
+    data = MLUtils.loadLibSVMFile(sc, "sample_libsvm_data.txt").collect()
+    #data = data[:10]
+    #print data[0]
+    
+    #svm = SVMWithSGD.train(sc.parallelize(data[:10]))
+    #svm = LogisticRegressionWithSGD.train(sc.parallelize(data))
+    svm = LogisticRegressionWithLBFGS.train(sc.parallelize(data))
     print svm.predict(data[0].features)
+
+    #report(labels, predicts)
