@@ -7,6 +7,7 @@ from sklearn.decomposition import PCA
 from pyspark.mllib.classification import SVMWithSGD
 from pyspark.mllib.regression import LabeledPoint
 from pyspark import SparkContext
+from pyspark import SparkConf
 from pyspark.mllib.util import MLUtils
 import copy
 
@@ -15,26 +16,40 @@ app_name = "WordCount"
 spark_master = "spark://zhangqingjundeMacBook-Air.local:7077"
 spark_home = "/Users/johnny/Desktop/spark-1.1.1-bin-hadoop2.4"
 
-sc = SparkContext(spark_master, app_name, spark_home, batchSize=-1)
+conf = SparkConf()
+conf.setMaster(spark_master)
+conf.setSparkHome(spark_home)
+conf.setAppName(app_name)
+conf.set("spark.executor.memory", "1g")
+conf.set("spark.akka.frameSize", "100")
+sc = SparkContext(conf=conf, batchSize=-1)
 
 attr1s = ["udp", "icmp", "tcp"]
 attr1s_map = { attr1s[i]: i for i in range(len(attr1s)) }
 
-attr2s = ["domain", "netbios_ssn", "urp_i", "Z39_50", "smtp", "gopher",
-          "private", "echo", "printer", "red_i", "eco_i", "sunrpc",
-          "ftp_data", "urh_i", "pm_dump", "pop_3", "pop_2", "systat",
-          "ftp", "uucp", "whois", "netbios_dgm", "efs", "remote_job",
-          "sql_net", "daytime", "ntp_u", "finger", "ldap", "netbios_ns",
-          "kshell", "iso_tsap", "ecr_i", "nntp", "shell", "domain_u",
-          "uucp_path", "courier", "exec", "tim_i", "netstat", "telnet",
-          "rje", "hostnames", "link", "auth", "http_443", "csnet_ns",
-          "X11", "IRC", "tftp_u", "imap4", "supdup", "name",
-          "nnsp", "mtp", "http", "bgp", "ctf", "klogin",
-          "vmnet", "time", "discard", "login", "other", "ssh"
+attr2s = [
+            "urp_i", "netbios_ssn", "Z39_50", "tim_i", "smtp",
+            "domain", "private", "echo", "printer", "red_i",
+            "eco_i", "sunrpc", "ftp_data", "urh_i", "pm_dump",
+            "pop_3", "pop_2", "systat", "ftp", "uucp",
+            "whois", "tftp_u", "netbios_dgm", "efs", "remote_job",
+            "sql_net", "daytime", "ntp_u", "finger", "ldap",
+            "netbios_ns", "kshell", "iso_tsap", "ecr_i", "nntp",
+            "http_2784", "shell", "domain_u", "uucp_path", "courier",
+            "exec", "aol", "netstat", "telnet", "gopher",
+            "rje", "hostnames", "link", "ssh", "http_443",
+            "csnet_ns", "X11", "IRC", "harvest", "imap4",
+            "supdup", "name", "nnsp", "mtp", "http",
+            "bgp", "ctf", "klogin", "vmnet", "time",
+            "discard", "login", "auth", "other", "http_8001"
          ]
 attr2s_map = { attr2s[i]: i for i in range(len(attr2s)) }
 
-attr3s = ["OTH", "RSTR", "S3", "S2", "S1", "S0", "RSTOS0", "REJ", "SH", "RSTO", "SF"]
+attr3s = [
+            "OTH", "RSTR", "S3", "S2", "S1",
+            "S0", "RSTOS0", "REJ", "SH", "RSTO",
+            "SF"
+         ]
 attr3s_map = { attr3s[i]: i for i in range(len(attr3s)) }
 
 labels = [ "back", "buffer_overflow", "ftp_write", "guess_passwd", "imap", "ipsweep",
@@ -83,7 +98,7 @@ def read_file(file_name):
 
 def get_principal_indexes(data, required):
     pca = PCA(n_components=required)
-    X = np.array([row.features for row in data])
+    X = [[row.features for row in data]]
     pca.fit(X)
     return pca
 
@@ -167,24 +182,20 @@ def report(actuals, predicts):
 
 
 if __name__ == "__main__":
-    rows = read_file("10_percent.txt")
+    rows = read_file("kddcup.data._10_percent")
+    #rows = read_file("kddcup.data.corrected")
     data = transform_to_data(rows)
     #data = MLUtils.loadLibSVMFile(sc, "Con.txt").collect()
-    #data = MLUtils.loadLibSVMFile(sc, "sample_libsvm_data.txt").collect()
 
-    training_data = data[:10000]
-    test_data = data[:10000]
+    training_data = data[:200000]
+    test_data = data[200000:]
    
-
-    print [row.label for row in training_data]
     #reduce_dimension(training_data, data, required=30)
 
     hist = [0 for label in range(len(label_map))]
     for row in training_data:
-        hist[row.label] += 1
+        hist[int(row.label)] += 1
     
-    print hist    
-    exit() 
     classifiers = gen_predictors(training_data)
 
     actuals = [row.label for row in test_data]

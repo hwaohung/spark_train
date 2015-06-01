@@ -6,3 +6,6 @@
   training data label的分佈數量最少的label．
 
 2 此題想到的方法是用先用PCA，對資料做降維，之後再用SVM對這個被降為的資料做training & test
+
+
+因為執行時遇到一些問題（記憶體size），還在處理中，會盡快放上來．
