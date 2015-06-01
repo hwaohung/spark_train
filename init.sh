@@ -1,4 +1,14 @@
-../spark-1.3.1-bin-hadoop2.4/sbin/start-master.sh
-../spark-1.3.1-bin-hadoop2.4/bin/spark-class org.apache.spark.deploy.worker.Worker spark://zhangqingjundeMacBook-Air.local:7077 -m 4G
-../spark-1.3.1-bin-hadoop2.4/bin/spark-class org.apache.spark.deploy.worker.Worker spark://ip134-180.wlan.ntust.edu.tw:7077 -m 4G
+PATH=../spark-1.3.1-bin-hadoop2.4/bin:$PATH
+PATH=../spark-1.3.1-bin-hadoop2.4/sbin:$PATH
+host_name=spark://Kingdom:7077
 
+# Stop the spark master
+stop-master.sh
+
+# Start the spark master
+start-master.sh
+
+# Detach 3 workers
+spark-class org.apache.spark.deploy.worker.Worker $host_name -m 1G &
+spark-class org.apache.spark.deploy.worker.Worker $host_name -m 1G &
+spark-class org.apache.spark.deploy.worker.Worker $host_name -m 1G &
