@@ -127,16 +127,15 @@ def report(actuals, predicts):
             recalls.append(conf_mat_T[i, i]/sum(conf_mat_T[i]))
         else:
             recalls.append(-1)
-            
-
+    
     # Write out the confusion matrix to csv 
-    titles = sorted(label_map.iteritems(), key=lambda x: x[1])
+    titles = [item[0] for item in sorted(label_map.iteritems(), key=lambda x: x[1])]
     writer = csv.writer(open("confusion_matrix.csv", "wb"), delimiter=',')
     writer.writerow([""] + [title for title in titles] + ["*precision"])
 
     for i in range(len(titles)):
         title = titles[i]
-        if precisions[i] > 0: p_label = str(precisions[i])
+        if precisions[i] >= 0: p_label = str(precisions[i])
         else: p_label = "N/A"
         writer.writerow([title] + [value for value in conf_mat[i]] + [p_label])
 
@@ -147,7 +146,7 @@ def report(actuals, predicts):
 
     row = ["*recall"]
     for recall in recalls:
-        if recalls[i] > 0: r_label = str(recalls[i])
+        if recall >= 0: r_label = str(recall)
         else: r_label = "N/A"
         row.append(r_label)
 
