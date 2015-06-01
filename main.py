@@ -2,6 +2,7 @@
 #from pyspark.mllib.classification import LogisticRegressionWithSGD
 #from pyspark.mllib.classification import LogisticRegressionWithLBFGS
 import numpy as np
+import csv
 from collections import Counter
 from sklearn.decomposition import PCA
 
@@ -27,7 +28,6 @@ conf.set("spark.akka.frameSize", "100")
 conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
 conf.set("spark.kryoserializer.buffer.mb", "64")
 conf.set("spark.executor.extraJavaOptions", "-XX:+UseCompressedOops")
-# Lower best
 conf.set("spark.storage.memoryFraction", "0.6")
 sc = SparkContext(conf=conf)
 
@@ -55,16 +55,29 @@ def get_sorted_label(file_name):
     sorted_items = sorted(hist.iteritems(), key=lambda x: x[1])
     return [item[0] for item in sorted_items]
 
+def transform_label(labeled_point):
+    if labeled_point.label == processed_label:
+        labeled_point.label = 1.0
+    else:
+        labeled_point.label = 0.0
+
+    return labeled_point
+
+
 # Gen multiple classfiers
 def gen_predictors(training_file):
     classifiers = dict()
-    for key in label_map.keys():
-        print "Gen predictor for label '{0}' ...".format(key)
+    for item in label_map.iteritems():
+        print "Gen predictor for label '{0}' ...".format(item[0])
 
-        training_data = sc.textFile(file_name).map(parsePoint)
-        training_data = sc.textFile(file_name).map(lambda x: 1 if x.label == label else 0)
+        global processed_label
+        processed_label = item[1]
+        training_data = sc.textFile(training_file)
+        training_data = training_data.map(parsePoint)
+        training_data = training_data.map(transform_label)
+        #training_data.foreach(transform_label)
         svm = SVMWithSGD.train(training_data)
-        classifiers[label_map[key]] = svm
+        classifiers[item[1]] = svm
         del training_data
 
     return classifiers
@@ -88,53 +101,59 @@ def reduce_dimension(training_data, data, required=30):
     pca.fit_transform(data)
 
 def report(actuals, predicts):
-    tp_count = dict()
-    actual_count = dict()
-    predict_count = dict()
-
-    # Initialize the count
-    for label in label_map.values():
-        tp_count[label] = 0
-        actual_count[label] = 0
-        predict_count[label] = 0
-
-    conf_mat = np.zeros((len(items), len(items)))
-    for i in range(len(actuals)):
-        actual = actuals[i]
-        predict = predicts[i]
-
-        conf_mat[actual, predict] += 1
-        actual_count[actual] += 1
-        predict_count[predict] += 1
-        if predict == actual:
-            tp_count[actual] += 1
+    N = len(label_map)
+    # Generate the confusion matrix
+    conf_mat = np.zeros((N, N))
+    for pair in zip(actuals, predicts):
+        conf_mat[pair[0], pair[1]] += 1
     
-    p_amount = 0.0
-    precision = 0.0
-    r_amount = 0.0
-    recall = 0.0
-    for label in label_map.values():
-        if actual_count[label] != 0: 
-            precision += tp_count[label] / float(actual_count[label])
-            p_amount += 1
-
-        if predict_count[label] != 0: 
-            recall += tp_count[label] / float(predict_count[label])
-            r_amount += 1
-
-    print p_amount, r_amount
-    precision /= float(p_amount)
-    recall /= float(r_amount)
+    # Transpose of confusion matrix 
+    conf_mat_T = conf_mat.transpose()
+    
+    # Calculate the precision of each label
+    precisions = list()
+    for i in range(N):
+        total = sum(conf_mat[i])
+        if total != 0:
+            precisions.append(conf_mat[i, i]/sum(conf_mat[i]))
+        else:
+            precisions.append(-1)
    
-    items = sorted(label_map.iteritems(), key=lambda x: x[1])
-    writer = csv.writer(open("confusion_matrix.csv", "wb"), delimiter=',')
-    writer.writerow([""] + ["{0}({1})".format(*item) for item in items])
-    for item in items:
-        writer.writerow(["{0}({1})".format(*item)] + [value for value in conf_mat[item[1]]])
-    
-    print "Precision: {0}".format(precision)
-    print "Recall: {0}".format(recall)
+    # Calculate the recall of each label
+    recalls = list()
+    for i in range(N):
+        total = sum(conf_mat_T[i])
+        if total != 0:
+            recalls.append(conf_mat_T[i, i]/sum(conf_mat_T[i]))
+        else:
+            recalls.append(-1)
+            
 
+    # Write out the confusion matrix to csv 
+    titles = sorted(label_map.iteritems(), key=lambda x: x[1])
+    writer = csv.writer(open("confusion_matrix.csv", "wb"), delimiter=',')
+    writer.writerow([""] + [title for title in titles] + ["*precision"])
+
+    for i in range(len(titles)):
+        title = titles[i]
+        if precisions[i] > 0: p_label = str(precisions[i])
+        else: p_label = "N/A"
+        writer.writerow([title] + [value for value in conf_mat[i]] + [p_label])
+
+    temp = [precision for precision in precisions if precision > 0]
+    precision = sum(temp) / len(temp)
+    temp = [recall for recall in recalls if recall > 0]
+    recall = sum(temp) / len(temp)
+
+    row = ["*recall"]
+    for recall in recalls:
+        if recalls[i] > 0: r_label = str(recalls[i])
+        else: r_label = "N/A"
+        row.append(r_label)
+
+    row.append("{0}/{1}".format(precision, recall))
+    writer.writerow(row)
+    
 
 if __name__ == "__main__":
     training_file = "Con.txt"
@@ -149,12 +168,4 @@ if __name__ == "__main__":
     actuals = sc.textFile(test_file).map(lambda x: int(x[:x.index(' ')]))
     predicts = sc.textFile(test_file).map(predict)
 
-    actuals = actuals.collect()
-    predicts = predicts.collect()
-
-    #print "Actuals"
-    #print Counter(actuals)
-    #print "Predicts"
-    #print Counter(predicts)
-
-    report(actuals, predicts)
+    report(actuals.collect(), predicts.collect())
