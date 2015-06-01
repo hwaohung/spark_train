@@ -1,18 +1,18 @@
 #from pyspark.mllib.classification import SVMModel
 #from pyspark.mllib.classification import LogisticRegressionWithSGD
 #from pyspark.mllib.classification import LogisticRegressionWithLBFGS
+#from pyspark.mllib.util import MLUtils
 import numpy as np
 import csv
 from collections import Counter
 from sklearn.decomposition import PCA
+from numpy.random import choice
 
 from pyspark.mllib.classification import SVMWithSGD
 from pyspark.mllib.regression import LabeledPoint
 from pyspark import SparkContext
 from pyspark import SparkConf
-from pyspark.mllib.util import MLUtils
 from attributes import *
-import copy
 
 
 app_name = "WordCount"
@@ -42,7 +42,7 @@ def get_principal_indexes(data, required):
     pca.fit(X)
     return pca
 
-# Sort the label by the count in increasing order
+# Return the sorted label, and the weight list
 def get_sorted_label(file_name):
     rp = open(file_name, 'r')
     labels = list()
@@ -53,7 +53,8 @@ def get_sorted_label(file_name):
     rp.close()
     hist = Counter(labels)
     sorted_items = sorted(hist.iteritems(), key=lambda x: x[1])
-    return [item[0] for item in sorted_items]
+    total = sum(hist.values())
+    return [item[0] for item in sorted_items], [float(item[1]) for item in sorted_items]
 
 def transform_label(labeled_point):
     if labeled_point.label == processed_label:
@@ -62,7 +63,6 @@ def transform_label(labeled_point):
         labeled_point.label = 0.0
 
     return labeled_point
-
 
 # Gen multiple classfiers
 def gen_predictors(training_file):
@@ -75,7 +75,6 @@ def gen_predictors(training_file):
         training_data = sc.textFile(training_file)
         training_data = training_data.map(parsePoint)
         training_data = training_data.map(transform_label)
-        #training_data.foreach(transform_label)
         svm = SVMWithSGD.train(training_data)
         classifiers[item[1]] = svm
         del training_data
@@ -83,16 +82,19 @@ def gen_predictors(training_file):
     return classifiers
 
 def predict(line):
-    belong = None
     features = [float(x) for x in line.split(' ')][1:]
-    for i in range(len(sorted_label)-1, -1, -1):
+    candidates = list()
+    weights = list()
+    for i in range(len(sorted_label)):
         label = sorted_label[i]
         if classifiers[label].predict(features) == 1:
-            belong = label
-            break
-       
+            candidates.append(label)
+            weights.append(label_weights[i])
+   
+    total =  sum(weights)
     # When not fit label, then directly asign to min count label 
-    if belong is None: belong = sorted_label[0]
+    if len(candidates) == 0: belong = sorted_label[0]
+    else: belong = choice(candidates, p=[float(weight)/total for weight in weights])
     return belong
 
 def reduce_dimension(training_data, data, required=30):
@@ -127,7 +129,9 @@ def report(actuals, predicts):
             recalls.append(conf_mat_T[i, i]/sum(conf_mat_T[i]))
         else:
             recalls.append(-1)
-    
+   
+    print precisions
+    print recalls 
     # Write out the confusion matrix to csv 
     titles = [item[0] for item in sorted(label_map.iteritems(), key=lambda x: x[1])]
     writer = csv.writer(open("confusion_matrix.csv", "wb"), delimiter=',')
@@ -160,9 +164,9 @@ if __name__ == "__main__":
    
     #reduce_dimension(training_data, data, required=30)
  
-    global classifiers, sorted_label
+    global classifiers, sorted_label, label_weights
     classifiers = gen_predictors(training_file)
-    sorted_label = get_sorted_label(training_file)
+    sorted_label, label_weights = get_sorted_label(training_file)
 
     actuals = sc.textFile(test_file).map(lambda x: int(x[:x.index(' ')]))
     predicts = sc.textFile(test_file).map(predict)
