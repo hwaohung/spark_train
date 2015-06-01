@@ -2,39 +2,39 @@
 #from pyspark.mllib.classification import LogisticRegressionWithSGD
 #from pyspark.mllib.classification import LogisticRegressionWithLBFGS
 #from pyspark.mllib.util import MLUtils
-import numpy as np
+#import org.apache.log4j.Logger
+#import pysparkorg.apache.log4j.Level
+
 import csv
+import numpy as np
 from collections import Counter
 from sklearn.decomposition import PCA
-from numpy.random import choice
 
 from pyspark.mllib.classification import SVMWithSGD
-from pyspark.mllib.regression import LabeledPoint
 from pyspark import SparkContext
 from pyspark import SparkConf
-from attributes import *
 
+from convert import *
+
+#Logger.getLogger("org").setLevel(Level.ERROR)
+#Logger.getLogger("akka").setLevel(Level.ERROR)
 
 app_name = "WordCount"
-spark_master = "spark://zhangqingjundeMacBook-Air.local:7077"
-spark_home = "/Users/johnny/Desktop/spark-1.1.1-bin-hadoop2.4"
+spark_master = "spark://Kingdom:7077"
+spark_home = "../spark-1.3.1-bin-hadoop2.4"
 
 conf = SparkConf()
 conf.setMaster(spark_master)
 conf.setSparkHome(spark_home)
 conf.setAppName(app_name)
-conf.set("spark.executor.memory", "4g")
+conf.set("spark.executor.memory", "1g")
 conf.set("spark.akka.frameSize", "100")
 conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
 conf.set("spark.kryoserializer.buffer.mb", "64")
 conf.set("spark.executor.extraJavaOptions", "-XX:+UseCompressedOops")
 conf.set("spark.storage.memoryFraction", "0.6")
-sc = SparkContext(conf=conf)
+sc = SparkContext(conf=conf, pyFiles=["main.py", "convert.py"])
 
-
-def parsePoint(line):
-    values = [float(x) for x in line.split(' ')]
-    return LabeledPoint(values[0], values[1:])
 
 def get_principal_indexes(data, required):
     pca = PCA(n_components=required)
@@ -43,18 +43,11 @@ def get_principal_indexes(data, required):
     return pca
 
 # Return the sorted label, and the weight list
-def get_sorted_label(file_name):
-    rp = open(file_name, 'r')
-    labels = list()
-    for line in rp:
-        idx = line.index(' ')
-        labels.append(int(line[:idx]))
+def get_sorted_label(training_data):
+    rdd = training_data.map(lambda x: int(x.label))
+    items = sorted(rdd.countByValue().items(), key=lambda x: x[1])
 
-    rp.close()
-    hist = Counter(labels)
-    sorted_items = sorted(hist.iteritems(), key=lambda x: x[1])
-    total = sum(hist.values())
-    return [item[0] for item in sorted_items], [float(item[1]) for item in sorted_items]
+    return [item[0] for item in items], [item[1] for item in items]
 
 def transform_label(labeled_point):
     if labeled_point.label == processed_label:
@@ -65,24 +58,20 @@ def transform_label(labeled_point):
     return labeled_point
 
 # Gen multiple classfiers
-def gen_predictors(training_file):
+def gen_predictors(training_data):
     classifiers = dict()
     for item in label_map.iteritems():
         print "Gen predictor for label '{0}' ...".format(item[0])
 
         global processed_label
         processed_label = item[1]
-        training_data = sc.textFile(training_file)
-        training_data = training_data.map(parsePoint)
-        training_data = training_data.map(transform_label)
-        svm = SVMWithSGD.train(training_data)
+        svm = SVMWithSGD.train(training_data.map(transform_label))
         classifiers[item[1]] = svm
-        del training_data
 
     return classifiers
 
 def predict(line):
-    features = [float(x) for x in line.split(' ')][1:]
+    features = line[1]
     candidates = list()
     weights = list()
     for i in range(len(sorted_label)):
@@ -90,8 +79,8 @@ def predict(line):
         if classifiers[label].predict(features) == 1:
             candidates.append(label)
             weights.append(label_weights[i])
-   
-    total =  sum(weights)
+ 
+    total = sum(weights)
     # When not fit label, then directly asign to min count label 
     if len(candidates) == 0: belong = sorted_label[0]
     else: belong = choice(candidates, p=[float(weight)/total for weight in weights])
@@ -159,16 +148,18 @@ def report(actuals, predicts):
     
 
 if __name__ == "__main__":
-    training_file = "Con.txt"
-    test_file = "Con.txt"
-   
+    training_file = "kddcup.data._10_percent"
+    test_file = "kddcup.data._10_percent"
+
+    training_data = data_preprocessing(sc, training_file).map(parsePoint)
+    test_data = data_preprocessing(sc, test_file).map(parsePoint)
     #reduce_dimension(training_data, data, required=30)
  
     global classifiers, sorted_label, label_weights
-    classifiers = gen_predictors(training_file)
-    sorted_label, label_weights = get_sorted_label(training_file)
+    classifiers = gen_predictors(training_data)
+    sorted_label, label_weights = get_sorted_label(training_data)
 
-    actuals = sc.textFile(test_file).map(lambda x: int(x[:x.index(' ')]))
-    predicts = sc.textFile(test_file).map(predict)
+    actuals = test_data.map(lambda x: int(x[0]))
+    predicts = test_data.map(predict)
 
     report(actuals.collect(), predicts.collect())
