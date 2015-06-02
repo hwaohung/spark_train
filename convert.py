@@ -66,6 +66,9 @@ def data_preprocessing(sc, file_name):
     rdd = rdd.map(convert_features)
     return rdd
 
+def parseRawPoint(line):
+    return LabeledPoint(int(line[0]), [float(line[i]) for i in range(1, len(line))])
+
 def parsePoint(line):
     label = line[0]
     features = line[1]

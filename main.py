@@ -28,24 +28,18 @@ conf.setMaster(spark_master)
 conf.setSparkHome(spark_home)
 conf.setAppName(app_name)
 conf.set("spark.executor.memory", "1g")
-conf.set("spark.akka.frameSize", "100")
-conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-conf.set("spark.kryoserializer.buffer.mb", "64")
-conf.set("spark.executor.extraJavaOptions", "-XX:+UseCompressedOops")
-conf.set("spark.storage.memoryFraction", "0.6")
+#conf.set("spark.akka.frameSize", "100")
+#conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+#conf.set("spark.kryoserializer.buffer.mb", "64")
+#conf.set("spark.executor.extraJavaOptions", "-XX:+UseCompressedOops")
+#conf.set("spark.storage.memoryFraction", "0.6")
 sc = SparkContext(conf=conf, pyFiles=["main.py", "convert.py"])
 
-
-def get_principal_indexes(data, required):
-    pca = PCA(n_components=required)
-    X = [[row.features for row in data]]
-    pca.fit(X)
-    return pca
 
 # Return the sorted label, and the weight list
 def get_sorted_label(training_data):
     rdd = training_data.map(lambda x: int(x.label))
-    items = sorted(rdd.countByValue().items(), key=lambda x: x[1])
+    items = sorted(rdd.countByValue().items(), key=lambda x: x[0])
 
     return [item[0] for item in items], [item[1] for item in items]
 
@@ -70,8 +64,7 @@ def gen_predictors(training_data):
 
     return classifiers
 
-def predict(line):
-    features = line[1]
+def predict(features):
     candidates = list()
     weights = list()
     for i in range(len(sorted_label)):
@@ -86,16 +79,23 @@ def predict(line):
     else: belong = choice(candidates, p=[float(weight)/total for weight in weights])
     return belong
 
-def reduce_dimension(training_data, data, required=30):
-    # Dimension reduce
-    pca = get_principal_indexes(training_data, required=required)
-    pca.fit_transform(data)
+def reduce_dimension(data, required):
+    pca = PCA(n_components=required)
+    X = pca.fit_transform([point.features for point in data.toLocalIterator()])
+    Y = [point.label for point in data.toLocalIterator()]
 
-def report(actuals, predicts):
+    fp = open(".temp.txt", 'w')
+    for i in range(len(X)):
+        fp.write("{0} {1}".format(Y[i], ' '.join(X[i])))
+
+    fp.close()
+    return sc.textFile(".temp.txt").map(parseRawPoint)
+
+def report(labelsAndPreds):
     N = len(label_map)
     # Generate the confusion matrix
     conf_mat = np.zeros((N, N))
-    for pair in zip(actuals, predicts):
+    for pair in labelsAndPreds:
         conf_mat[pair[0], pair[1]] += 1
     
     # Transpose of confusion matrix 
@@ -119,8 +119,8 @@ def report(actuals, predicts):
         else:
             recalls.append(-1)
    
-    print precisions
-    print recalls 
+    #print precisions
+    #print recalls 
     # Write out the confusion matrix to csv 
     titles = [item[0] for item in sorted(label_map.iteritems(), key=lambda x: x[1])]
     writer = csv.writer(open("confusion_matrix.csv", "wb"), delimiter=',')
@@ -132,14 +132,15 @@ def report(actuals, predicts):
         else: p_label = "N/A"
         writer.writerow([title] + [value for value in conf_mat[i]] + [p_label])
 
-    temp = [precision for precision in precisions if precision > 0]
+    temp = [precision for precision in precisions if precision >= 0]
     precision = sum(temp) / len(temp)
-    temp = [recall for recall in recalls if recall > 0]
+    temp = [recall for recall in recalls if recall >= 0]
+    print temp
     recall = sum(temp) / len(temp)
 
     row = ["*recall"]
-    for recall in recalls:
-        if recall >= 0: r_label = str(recall)
+    for value in recalls:
+        if value >= 0: r_label = str(value)
         else: r_label = "N/A"
         row.append(r_label)
 
@@ -148,18 +149,23 @@ def report(actuals, predicts):
     
 
 if __name__ == "__main__":
-    training_file = "kddcup.data._10_percent"
-    test_file = "kddcup.data._10_percent"
+    original_file = "kddcup.data.corrected"
+    training_file = "training_data.txt"
+    test_file = "test_data.txt"
 
-    training_data = data_preprocessing(sc, training_file).map(parsePoint)
-    test_data = data_preprocessing(sc, test_file).map(parsePoint)
+    #training_data = data_preprocessing(sc, training_file).map(parsePoint)
+    #test_data = data_preprocessing(sc, test_file).map(parsePoint)
+    data = data_preprocessing(sc, original_file).map(parsePoint)
+    splits = data.randomSplit([0.6, 0.4], 10)
+    training_data = splits[0].cache()
+    test_data = splits[1]
     #reduce_dimension(training_data, data, required=30)
  
     global classifiers, sorted_label, label_weights
     classifiers = gen_predictors(training_data)
+    training_data
     sorted_label, label_weights = get_sorted_label(training_data)
 
-    actuals = test_data.map(lambda x: int(x[0]))
-    predicts = test_data.map(predict)
+    labelsAndPreds = test_data.map(lambda x: (int(x.label), predict(x.features)))
 
-    report(actuals.collect(), predicts.collect())
+    report(labelsAndPreds.collect())
