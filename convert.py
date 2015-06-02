@@ -68,7 +68,11 @@ def parsePoint(line):
     return LabeledPoint(label, features)
 
 def parseRawPoint(line):
-    return LabeledPoint(int(line[0]), [float(line[i]) for i in range(1, len(line))])
+    line = line.split(' ')
+    label = int(line[0])
+    features = [float(line[i]) for i in range(1, len(line))]
+    print label
+    return LabeledPoint(label, features)
 
 def get_data(sc, file_name):
     rdd = sc.textFile(file_name)

@@ -9,7 +9,6 @@ import csv
 import numpy as np
 from collections import Counter
 
-
 from pyspark.mllib.classification import SVMWithSGD
 from pyspark import SparkContext
 from pyspark import SparkConf
@@ -66,6 +65,7 @@ def gen_predictors(training_data):
     return classifiers
 
 def predict(features):
+    from numpy.random import choice
     candidates = list()
     weights = list()
     for i in range(len(sorted_label)):
@@ -138,19 +138,26 @@ def report(labelsAndPreds):
     
 
 if __name__ == "__main__":
-    original_file = "kddcup.data.corrected"
+    #original_file = "kddcup.data.corrected"
+    original_file = "kddcup.data._10_percent"
 
     #data = get_data(sc, original_file)
-    data = get_reduce_dimension_data(sc, original_file, required=60)
-    exit()
+    #data = get_reduce_dimension_data(sc, original_file, required=60)
+    
+    data = sc.textFile("kddcup.data._10_percent_reduce.txt").map(parseRawPoint)
     splits = data.randomSplit([0.6, 0.4], 10)
     training_data = splits[0].cache()
     test_data = splits[1]
- 
+
+     
     global classifiers, sorted_label, label_weights
     classifiers = gen_predictors(training_data)
     training_data
     sorted_label, label_weights = get_sorted_label(training_data)
+    print sorted_label
+    print "==================================="
+    print label_weights
+    print "==================================="
 
     labelsAndPreds = test_data.map(lambda x: (int(x.label), predict(x.features)))
 
