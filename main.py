@@ -8,13 +8,14 @@
 import csv
 import numpy as np
 from collections import Counter
-from sklearn.decomposition import PCA
+
 
 from pyspark.mllib.classification import SVMWithSGD
 from pyspark import SparkContext
 from pyspark import SparkConf
 
 from convert import *
+from reduce_dimension import *
 
 #Logger.getLogger("org").setLevel(Level.ERROR)
 #Logger.getLogger("akka").setLevel(Level.ERROR)
@@ -79,18 +80,6 @@ def predict(features):
     else: belong = choice(candidates, p=[float(weight)/total for weight in weights])
     return belong
 
-def reduce_dimension(data, required):
-    pca = PCA(n_components=required)
-    X = pca.fit_transform([point.features for point in data.toLocalIterator()])
-    Y = [point.label for point in data.toLocalIterator()]
-
-    fp = open(".temp.txt", 'w')
-    for i in range(len(X)):
-        fp.write("{0} {1}".format(Y[i], ' '.join(X[i])))
-
-    fp.close()
-    return sc.textFile(".temp.txt").map(parseRawPoint)
-
 def report(labelsAndPreds):
     N = len(label_map)
     # Generate the confusion matrix
@@ -150,16 +139,13 @@ def report(labelsAndPreds):
 
 if __name__ == "__main__":
     original_file = "kddcup.data.corrected"
-    training_file = "training_data.txt"
-    test_file = "test_data.txt"
 
-    #training_data = data_preprocessing(sc, training_file).map(parsePoint)
-    #test_data = data_preprocessing(sc, test_file).map(parsePoint)
-    data = data_preprocessing(sc, original_file).map(parsePoint)
+    #data = get_data(sc, original_file)
+    data = get_reduce_dimension_data(sc, original_file, required=60)
+    exit()
     splits = data.randomSplit([0.6, 0.4], 10)
     training_data = splits[0].cache()
     test_data = splits[1]
-    #reduce_dimension(training_data, data, required=30)
  
     global classifiers, sorted_label, label_weights
     classifiers = gen_predictors(training_data)

@@ -1,5 +1,9 @@
 from numpy.random import choice
-from pyspark.mllib.regression import LabeledPoint
+
+try:
+    from pyspark.mllib.regression import LabeledPoint
+except Exception as ex:
+    print ex
 
 attr1s = ["udp", "icmp", "tcp"]
 attr1s_map = { attr1s[i]: i for i in range(len(attr1s)) }
@@ -54,26 +58,24 @@ def write_to_file(rows, file_name):
     for row in rows:
         label, features = convert_features(row)
         #print features
-        test.write("{0} {1}\n".format(label, 
-                                      ' '.join([str(f) for f in features])))
-                                      #' '.join(["{0}:{1}".format(i, lp.features[i]) for i in range(len(lp.features)) if lp.features[i] != 0])))
+        test.write("{0} {1}\n".format(label, ' '.join([str(f) for f in features])))
 
     test.close()
-
-def data_preprocessing(sc, file_name):
-    rdd = sc.textFile(file_name)
-    rdd = rdd.map(lambda line: line[:-1].split(','))
-    rdd = rdd.map(convert_features)
-    return rdd
-
-def parseRawPoint(line):
-    return LabeledPoint(int(line[0]), [float(line[i]) for i in range(1, len(line))])
 
 def parsePoint(line):
     label = line[0]
     features = line[1]
     return LabeledPoint(label, features)
-    
+
+def parseRawPoint(line):
+    return LabeledPoint(int(line[0]), [float(line[i]) for i in range(1, len(line))])
+
+def get_data(sc, file_name):
+    rdd = sc.textFile(file_name)
+    rdd = rdd.map(lambda line: line[:-1].split(','))
+    rdd = rdd.map(convert_features)
+    return rdd.map(parsePoint)
+ 
 #if __name__ == "__main__":
 #    rdd = data_preprocessing("kddcup.data._10_percent")
 #    for row in rdd.collect():
