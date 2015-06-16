@@ -33,9 +33,9 @@ attr3s_map = { attr3s[i]: i for i in range(len(attr3s)) }
 #         ]
 #label_map = { labels[i]: i for i in range(len(labels)) }
 label_map = { 
-              "normal": 0,
-              "nmap": 1, "portsweep": 1, "ipsweep": 1, "satan": 1, 
-              "teardrop": 2, "back": 2, "pod": 2, "land": 2, "neptune": 2, "smurf": 2, 
-              "guess_passwd": 3, "spy": 3, "ftp_write": 3, "multihop": 3, "phf": 3, "warezmaster": 3, "imap": 3, "warezclient": 3, 
-              "rootkit": 4, "perl": 4, "loadmodule": 4, "buffer_overflow": 4
+              "normal": 0.0,
+              "nmap": 1.0, "portsweep": 1.0, "ipsweep": 1.0, "satan": 1.0, 
+              "teardrop": 2.0, "back": 2.0, "pod": 2.0, "land": 2.0, "neptune": 2.0, "smurf": 2.0, 
+              "guess_passwd": 3.0, "spy": 3.0, "ftp_write": 3.0, "multihop": 3.0, "phf": 3.0, "warezmaster": 3.0, "imap": 3.0, "warezclient": 3.0, 
+              "rootkit": 4.0, "perl": 4.0, "loadmodule": 4.0, "buffer_overflow": 4.0
             }

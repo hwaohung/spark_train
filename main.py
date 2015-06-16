@@ -1,6 +1,6 @@
 #from pyspark.mllib.classification import SVMModel
 #from pyspark.mllib.classification import LogisticRegressionWithSGD
-from pyspark.mllib.classification import LogisticRegressionWithLBFGS
+#from pyspark.mllib.classification import LogisticRegressionWithLBFGS
 #from pyspark.mllib.util import MLUtils
 #import org.apache.log4j.Logger
 #import pysparkorg.apache.log4j.Level
@@ -79,7 +79,8 @@ def predict(features):
     return belong
 
 def report(labelsAndPreds):
-    N = len(label_map)
+    #N = len(label_map)
+    N = 5
     # Generate the confusion matrix
     conf_mat = np.zeros((N, N))
     for pair in labelsAndPreds:
@@ -109,7 +110,8 @@ def report(labelsAndPreds):
     #print precisions
     #print recalls 
     # Write out the confusion matrix to csv 
-    titles = [item[0] for item in sorted(label_map.iteritems(), key=lambda x: x[1])]
+    #titles = [item[0] for item in sorted(label_map.iteritems(), key=lambda x: x[1])]
+    titles = ["normal", "probe", "dos", "r2l", "u2r"]
     writer = csv.writer(open("confusion_matrix.csv", "wb"), delimiter=',')
     writer.writerow([""] + [title for title in titles] + ["*precision"])
 
@@ -145,7 +147,6 @@ if __name__ == "__main__":
     training_data = splits[0].cache()
     test_data = splits[1]
 
-     
     global classifiers, sorted_label, label_weights
     classifiers = gen_predictors(training_data)
     sorted_label, label_weights = get_sorted_label(training_data)

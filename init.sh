@@ -1,5 +1,5 @@
-PATH=../spark-1.3.1-bin-hadoop2.4/bin:$PATH
-PATH=../spark-1.3.1-bin-hadoop2.4/sbin:$PATH
+PATH=../spark-1.4.0-bin-hadoop2.4/bin:$PATH
+PATH=../spark-1.4.0-bin-hadoop2.4/sbin:$PATH
 host_name=spark://Kingdom:7077
 
 # Stop the spark master
