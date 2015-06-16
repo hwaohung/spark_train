@@ -26,9 +26,16 @@ attr3s = [
          ]
 attr3s_map = { attr3s[i]: i for i in range(len(attr3s)) }
 
-labels = [ "back", "buffer_overflow", "ftp_write", "guess_passwd", "imap", "ipsweep",
-           "land", "loadmodule", "multihop", "neptune", "nmap", "normal",
-           "perl", "phf", "pod", "portsweep", "rootkit", "satan",
-           "smurf", "spy", "teardrop", "warezclient", "warezmaster"
-         ]
-label_map = { labels[i]: i for i in range(len(labels)) }
+#labels = [ "back", "buffer_overflow", "ftp_write", "guess_passwd", "imap", "ipsweep",
+#           "land", "loadmodule", "multihop", "neptune", "nmap", "normal",
+#           "perl", "phf", "pod", "portsweep", "rootkit", "satan",
+#           "smurf", "spy", "teardrop", "warezclient", "warezmaster"
+#         ]
+#label_map = { labels[i]: i for i in range(len(labels)) }
+label_map = { 
+              "normal": 0,
+              "nmap": 1, "portsweep": 1, "ipsweep": 1, "satan": 1, 
+              "teardrop": 2, "back": 2, "pod": 2, "land": 2, "neptune": 2, "smurf": 2, 
+              "guess_passwd": 3, "spy": 3, "ftp_write": 3, "multihop": 3, "phf": 3, "warezmaster": 3, "imap": 3, "warezclient": 3, 
+              "rootkit": 4, "perl": 4, "loadmodule": 4, "buffer_overflow": 4
+            }
