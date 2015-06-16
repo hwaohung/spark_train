@@ -9,6 +9,6 @@ stop-master.sh
 start-master.sh
 
 # Detach 3 workers
-spark-class org.apache.spark.deploy.worker.Worker $host_name -m 1G &
-spark-class org.apache.spark.deploy.worker.Worker $host_name -m 1G &
-spark-class org.apache.spark.deploy.worker.Worker $host_name -m 1G &
+spark-class org.apache.spark.deploy.worker.Worker $host_name -m 1G
+#spark-class org.apache.spark.deploy.worker.Worker $host_name -m 1G &
+#spark-class org.apache.spark.deploy.worker.Worker $host_name -m 1G &

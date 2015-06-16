@@ -1,6 +1,6 @@
 #from pyspark.mllib.classification import SVMModel
 #from pyspark.mllib.classification import LogisticRegressionWithSGD
-#from pyspark.mllib.classification import LogisticRegressionWithLBFGS
+from pyspark.mllib.classification import LogisticRegressionWithLBFGS
 #from pyspark.mllib.util import MLUtils
 #import org.apache.log4j.Logger
 #import pysparkorg.apache.log4j.Level
@@ -16,8 +16,6 @@ from pyspark import SparkConf
 from convert import *
 from reduce_dimension import *
 
-#Logger.getLogger("org").setLevel(Level.ERROR)
-#Logger.getLogger("akka").setLevel(Level.ERROR)
 
 app_name = "WordCount"
 spark_master = "spark://Kingdom:7077"
@@ -33,7 +31,7 @@ conf.set("spark.executor.memory", "1g")
 #conf.set("spark.kryoserializer.buffer.mb", "64")
 #conf.set("spark.executor.extraJavaOptions", "-XX:+UseCompressedOops")
 #conf.set("spark.storage.memoryFraction", "0.6")
-sc = SparkContext(conf=conf, pyFiles=["main.py", "convert.py"])
+sc = SparkContext(conf=conf, pyFiles=["main.py", "convert.py", "attributes.py"])
 
 
 # Return the sorted label, and the weight list
@@ -141,10 +139,8 @@ if __name__ == "__main__":
     #original_file = "kddcup.data.corrected"
     original_file = "kddcup.data._10_percent"
 
-    #data = get_data(sc, original_file)
-    #data = get_reduce_dimension_data(sc, original_file, required=60)
+    data = get_data(sc, original_file)
     
-    data = sc.textFile("kddcup.data._10_percent_reduce.txt").map(parseRawPoint)
     splits = data.randomSplit([0.6, 0.4], 10)
     training_data = splits[0].cache()
     test_data = splits[1]
@@ -152,8 +148,8 @@ if __name__ == "__main__":
      
     global classifiers, sorted_label, label_weights
     classifiers = gen_predictors(training_data)
-    training_data
     sorted_label, label_weights = get_sorted_label(training_data)
+
     print sorted_label
     print "==================================="
     print label_weights
